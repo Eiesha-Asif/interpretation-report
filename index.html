@@ -104,6 +104,34 @@
   #resetBtn:hover{ background:#e2e7ec; }
   .hint{ font-size:11px; color:var(--muted); margin-top:6px; text-align:center; }
 
+  /* ---------- AUTOCOMPLETE ---------- */
+  .ac-wrap{ position:relative; }
+  .ac-list{
+    position:absolute;
+    top:100%; left:0; right:0;
+    background:#fff;
+    border:1px solid var(--line);
+    border-top:none;
+    border-radius:0 0 6px 6px;
+    max-height:210px;
+    overflow-y:auto;
+    z-index:50;
+    box-shadow:0 6px 14px rgba(20,30,40,.12);
+    display:none;
+  }
+  .ac-list.show{ display:block; }
+  .ac-item{
+    padding:7px 9px;
+    font-size:12.5px;
+    cursor:pointer;
+    border-bottom:1px solid #f0f2f4;
+  }
+  .ac-item:last-child{ border-bottom:none; }
+  .ac-item:hover, .ac-item.active{ background:#eef6f8; }
+  .ac-item b{ color:var(--navy); }
+  .ac-sub{ color:var(--muted); font-size:11px; }
+  .ac-loading{ padding:7px 9px; font-size:12px; color:var(--muted); font-style:italic; }
+
   /* ---------- PREVIEW PANEL ---------- */
   .preview-wrap{
     padding:32px;
@@ -280,7 +308,7 @@
         </div>
       </div>
       <div class="row2">
-        <div><label>Date of birth</label><input type="text" id="pDob" value="14/03/1985" placeholder="DD/MM/YYYY"></div>
+        <div><label>Date of birth</label><input type="date" id="pDob" value="1985-03-14"></div>
         <div><label>Case ID</label><input type="text" id="caseId" value="GCSYN-0001"></div>
       </div>
       <label>Indication for testing</label>
@@ -291,22 +319,29 @@
       </div>
       <div class="row2">
         <div><label>Specimen</label><input type="text" id="specimen" value="Peripheral blood"></div>
-        <div><label>Reported date</label><input type="text" id="reportDate" value="21/07/2026"></div>
+        <div><label>Reported date</label><input type="date" id="reportDate" value="2026-07-21"></div>
       </div>
       <div class="row2">
-        <div><label>Collected</label><input type="text" id="collected" value="10/07/2026"></div>
-        <div><label>Received</label><input type="text" id="received" value="11/07/2026"></div>
+        <div><label>Collected</label><input type="date" id="collected" value="2026-07-10"></div>
+        <div><label>Received</label><input type="date" id="received" value="2026-07-11"></div>
       </div>
     </fieldset>
 
     <fieldset>
       <legend>Variant / Finding</legend>
       <div class="row2">
-        <div><label>Gene</label><input type="text" id="gene" value="HFE"></div>
+        <div class="ac-wrap">
+          <label>Gene <span style="font-weight:400;color:#9aa7b3;">(type to search)</span></label>
+          <input type="text" id="gene" value="HFE" autocomplete="off">
+          <div class="ac-list" id="geneAcList"></div>
+        </div>
         <div><label>Transcript</label><input type="text" id="transcript" value="NM_000410.4"></div>
       </div>
-      <label>Condition / disease (+ MIM #)</label>
-      <input type="text" id="condition" value="Hereditary Hemochromatosis, Type 1 [MIM: 235200]">
+      <div class="ac-wrap">
+        <label>Condition / disease <span style="font-weight:400;color:#9aa7b3;">(type to search)</span></label>
+        <input type="text" id="condition" value="Hereditary Hemochromatosis, Type 1 [MIM: 235200]" autocomplete="off">
+        <div class="ac-list" id="conditionAcList"></div>
+      </div>
       <div class="row2">
         <div><label>Chromosome:Position</label><input type="text" id="chrPos" value="6:26,091,179"></div>
         <div><label>Zygosity</label>
@@ -318,7 +353,19 @@
         <div><label>HGVS (Protein)</label><input type="text" id="hgvsProt" value="p.Cys282Tyr"></div>
       </div>
       <div class="row2">
-        <div><label>Inheritance</label><input type="text" id="inheritance" value="Autosomal Recessive"></div>
+        <div><label>Inheritance</label>
+          <select id="inheritance">
+            <option>Autosomal Recessive</option>
+            <option>Autosomal Dominant</option>
+            <option>X-linked Recessive</option>
+            <option>X-linked Dominant</option>
+            <option>Y-linked</option>
+            <option>Mitochondrial</option>
+            <option>Multifactorial / Complex</option>
+            <option>De novo</option>
+            <option>Unknown</option>
+          </select>
+        </div>
         <div><label>Classification</label>
           <select id="classification"><option>Pathogenic</option><option>Likely Pathogenic</option><option>VUS</option><option>Likely Benign</option><option>Benign</option></select>
         </div>
@@ -433,6 +480,14 @@ As knowledge increases, periodic re-evaluation is appropriate.</textarea>
     return d.innerHTML;
   }
 
+  function fmtDate(iso){
+    if(!iso) return "";
+    const parts = iso.split("-");
+    if(parts.length !== 3) return iso;
+    const [y,m,d] = parts;
+    return `${d}/${m}/${y}`;
+  }
+
   function render(){
     const v = {};
     ids.forEach(id => { v[id] = document.getElementById(id).value; });
@@ -443,12 +498,12 @@ As knowledge increases, periodic re-evaluation is appropriate.</textarea>
     document.getElementById("outPhysician").innerText = v.physician;
     document.getElementById("outPSex").innerText = v.pSex;
     document.getElementById("outAccount").innerText = v.account;
-    document.getElementById("outPDob").innerText = v.pDob;
+    document.getElementById("outPDob").innerText = fmtDate(v.pDob);
     document.getElementById("outSpecimen").innerText = v.specimen;
     document.getElementById("outIndication").innerText = v.indication;
-    document.getElementById("outCollRec").innerText = v.collected + " / " + v.received;
+    document.getElementById("outCollRec").innerText = fmtDate(v.collected) + " / " + fmtDate(v.received);
     document.getElementById("outCaseId").innerText = v.caseId;
-    document.getElementById("outReportDate").innerText = v.reportDate;
+    document.getElementById("outReportDate").innerText = fmtDate(v.reportDate);
 
     document.getElementById("outTestResult").innerText = v.testResult;
     document.getElementById("outPhenotype").innerText = v.phenotype;
@@ -488,6 +543,107 @@ As knowledge increases, periodic re-evaluation is appropriate.</textarea>
     document.getElementById(id).addEventListener("input", render);
   });
   render();
+
+  /* ================= AUTOCOMPLETE (NIH Clinical Tables — HGNC genes & Medical Conditions) ================= */
+  function setupAutocomplete(inputId, listId, apiUrlFn, formatFn){
+    const input = document.getElementById(inputId);
+    const list = document.getElementById(listId);
+    let debounceTimer = null;
+    let currentItems = [];
+    let activeIndex = -1;
+
+    function hide(){ list.classList.remove("show"); list.innerHTML = ""; activeIndex = -1; }
+
+    function showLoading(){
+      list.innerHTML = '<div class="ac-loading">Searching…</div>';
+      list.classList.add("show");
+    }
+
+    function renderList(items){
+      currentItems = items;
+      if(!items.length){ hide(); return; }
+      list.innerHTML = "";
+      items.forEach((item, i) => {
+        const row = document.createElement("div");
+        row.className = "ac-item";
+        row.innerHTML = item.html;
+        row.addEventListener("mousedown", (e) => {
+          e.preventDefault();
+          input.value = item.value;
+          hide();
+          render();
+        });
+        list.appendChild(row);
+      });
+      list.classList.add("show");
+    }
+
+    input.addEventListener("input", () => {
+      const q = input.value.trim();
+      clearTimeout(debounceTimer);
+      if(q.length < 2){ hide(); return; }
+      showLoading();
+      debounceTimer = setTimeout(async () => {
+        try {
+          const url = apiUrlFn(q);
+          const res = await fetch(url);
+          if(!res.ok) throw new Error("Lookup failed");
+          const data = await res.json();
+          renderList(formatFn(data));
+        } catch(err){
+          list.innerHTML = '<div class="ac-loading">No connection / no results — you can still type manually.</div>';
+          list.classList.add("show");
+        }
+      }, 300);
+    });
+
+    input.addEventListener("keydown", (e) => {
+      if(!list.classList.contains("show")) return;
+      const items = list.querySelectorAll(".ac-item");
+      if(e.key === "ArrowDown"){ e.preventDefault(); activeIndex = Math.min(activeIndex+1, items.length-1); }
+      else if(e.key === "ArrowUp"){ e.preventDefault(); activeIndex = Math.max(activeIndex-1, 0); }
+      else if(e.key === "Enter"){ if(activeIndex>=0 && currentItems[activeIndex]){ e.preventDefault(); input.value = currentItems[activeIndex].value; hide(); render(); } return; }
+      else if(e.key === "Escape"){ hide(); return; }
+      else { return; }
+      items.forEach((el,i) => el.classList.toggle("active", i===activeIndex));
+    });
+
+    document.addEventListener("click", (e) => {
+      if(!input.contains(e.target) && !list.contains(e.target)) hide();
+    });
+  }
+
+  // Gene search — HGNC gene symbols via NIH Clinical Table Search Service
+  setupAutocomplete(
+    "gene", "geneAcList",
+    (q) => `https://clinicaltables.nlm.nih.gov/api/genes/v3/search?terms=${encodeURIComponent(q)}&df=symbol,name&maxList=8`,
+    (data) => {
+      const rows = data[3] || [];
+      return rows.map(r => ({
+        value: r[0],
+        html: `<b>${esc2(r[0])}</b><div class="ac-sub">${esc2(r[1]||"")}</div>`
+      }));
+    }
+  );
+
+  // Condition / disease search — NIH Medical Conditions table
+  setupAutocomplete(
+    "condition", "conditionAcList",
+    (q) => `https://clinicaltables.nlm.nih.gov/api/conditions/v3/search?terms=${encodeURIComponent(q)}&df=primary_name&maxList=8`,
+    (data) => {
+      const rows = data[3] || [];
+      return rows.map(r => ({
+        value: r[0],
+        html: `<b>${esc2(r[0])}</b>`
+      }));
+    }
+  );
+
+  function esc2(str){
+    const d = document.createElement("div");
+    d.innerText = str || "";
+    return d.innerHTML;
+  }
 </script>
 
 </body>
