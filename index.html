@@ -104,6 +104,25 @@
   #resetBtn:hover{ background:#e2e7ec; }
   .hint{ font-size:11px; color:var(--muted); margin-top:6px; text-align:center; }
 
+  /* ---------- AUTO-GENERATED PREVIEW BOX (inside panel) ---------- */
+  .auto-preview{
+    background:#f6fafb;
+    border:1px dashed var(--teal);
+    border-radius:6px;
+    padding:9px 10px;
+    font-size:12px;
+    line-height:1.5;
+    color:#28414a;
+    min-height:40px;
+    white-space:pre-wrap;
+  }
+  .auto-note{
+    font-size:10.5px;
+    color:var(--muted);
+    font-style:italic;
+    margin:4px 0 0 0;
+  }
+
   /* ---------- AUTOCOMPLETE ---------- */
   .ac-wrap{ position:relative; }
   .ac-list{
@@ -375,11 +394,17 @@
     </fieldset>
 
     <fieldset>
+      <legend>Test Result Summary <span style="font-weight:400;color:#9aa7b3;text-transform:none;">(auto-generated)</span></legend>
+      <div class="auto-preview" id="panelTestResultPreview"></div>
+      <p class="auto-note">Gene, HGVS (DNA/Protein), Zygosity, Classification &amp; Condition fill in automatically from "Variant / Finding" above.</p>
+      <label>Confirmation line (editable)</label>
+      <input type="text" id="confirmLine" value="This result was confirmed by Sanger sequencing.">
+    </fieldset>
+
+    <fieldset>
       <legend>Narrative Content</legend>
       <label>Patient phenotype</label>
       <textarea id="phenotype">Fatigue, arthralgia (joint pain), elevated serum ferritin and transferrin saturation on routine bloodwork; family history of iron overload.</textarea>
-      <label>Test result summary (top box)</label>
-      <textarea id="testResult">A pathogenic, homozygous variant in HFE (c.845G>A, p.Cys282Tyr) was detected in this individual. Pathogenic biallelic variants in HFE are associated with Hereditary Hemochromatosis Type 1, a disorder of iron metabolism. This result was confirmed by Sanger sequencing.</textarea>
       <label>Variant interpretation</label>
       <textarea id="variantInfo">Describe the variant's known significance, functional evidence, population frequency, and in-silico predictions here.</textarea>
       <label>Gene information</label>
@@ -466,11 +491,13 @@ As knowledge increases, periodic re-evaluation is appropriate.</textarea>
 </div>
 
 <script>
+  // NOTE: "testResult" removed from this list — it is no longer a free-typed field,
+  // it is generated automatically inside generateTestResult() below.
   const ids = [
     "labName","labSub","signatory","pName","pSex","pDob","caseId","indication",
     "physician","account","specimen","reportDate","collected","received",
     "gene","transcript","condition","chrPos","zygosity","hgvsDna","hgvsProt",
-    "inheritance","classification","confirmStatus","phenotype","testResult",
+    "inheritance","classification","confirmStatus","confirmLine","phenotype",
     "variantInfo","geneInfo","references","recommendations"
   ];
 
@@ -486,6 +513,32 @@ As knowledge increases, periodic re-evaluation is appropriate.</textarea>
     if(parts.length !== 3) return iso;
     const [y,m,d] = parts;
     return `${d}/${m}/${y}`;
+  }
+
+  /* ================= AUTO-GENERATED TEST RESULT SENTENCE =================
+     The wording/structure below is the PERMANENT template.
+     Only these pieces are swapped in live from the "Variant / Finding" fields:
+       - v.classification  (Pathogenic / Likely Pathogenic / VUS / ...)
+       - v.zygosity        (Homozygous / Heterozygous / ...)
+       - v.gene
+       - v.hgvsDna
+       - v.hgvsProt
+       - v.condition
+  ==========================================================================*/
+  function generateTestResult(v){
+    const classification = (v.classification || "").trim();
+    const zygosity = (v.zygosity || "").trim();
+    const gene = (v.gene || "").trim();
+    const hgvsDna = (v.hgvsDna || "").trim();
+    const hgvsProt = (v.hgvsProt || "").trim();
+    const condition = (v.condition || "").trim();
+
+    const variantParen = [hgvsDna, hgvsProt].filter(Boolean).join(", ");
+    const variantPart = variantParen ? ` (${variantParen})` : "";
+    const confirmLine = (v.confirmLine || "").trim();
+    const confirmPart = confirmLine ? ` ${confirmLine}` : "";
+
+    return `A ${classification}, ${zygosity.toLowerCase()} variant in ${gene}${variantPart} was detected in this individual. ${classification} variant(s) in ${gene} are associated with ${condition}.${confirmPart}`;
   }
 
   function render(){
@@ -505,7 +558,10 @@ As knowledge increases, periodic re-evaluation is appropriate.</textarea>
     document.getElementById("outCaseId").innerText = v.caseId;
     document.getElementById("outReportDate").innerText = fmtDate(v.reportDate);
 
-    document.getElementById("outTestResult").innerText = v.testResult;
+    const generatedResult = generateTestResult(v);
+    document.getElementById("outTestResult").innerText = generatedResult;
+    document.getElementById("panelTestResultPreview").innerText = generatedResult;
+
     document.getElementById("outPhenotype").innerText = v.phenotype;
 
     document.getElementById("outConfirm").innerText = v.confirmStatus;
